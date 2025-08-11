@@ -1,1 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FAQ Chatbot</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #0b1220;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --primary: #111827;
+      --primary-contrast: #ffffff;
+      --radius: 16px;
+      --shadow: 0 10px 30px rgba(2,6,23,.08);
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg: #0b1220;
+        --card: #0f172a;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --border: #243042;
+        --primary: #2563eb;
+        --primary-contrast: #ffffff;
+        --shadow: 0 10px 30px rgba(0,0,0,.5);
+      }
+    }
+
+    html,body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      background:
+        radial-gradient(1200px 600px at -10% -20%, #e0e7ff, transparent 60%),
+        radial-gradient(1000px 800px at 120% 0%, #cffafe, transparent 60%),
+        var(--bg);
+      color: var(--text);
+    }
+    a { color: inherit; }
+
+    .wrap { max-width: 880px; margin: 40px auto; padding: 0 16px; }
+    .card { background: var(--card); border-radius: 24px; box-shadow: var(--shadow); overflow: hidden; border: 1px solid var(--border); }
+    header { padding: 16px 20px; border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:12px; backdrop-filter: saturate(1.1) blur(6px); }
+    header .dot { width:10px;height:10px;border-radius:50%;background:#34c759; box-shadow:0 0 0 3px rgba(52,199,89,.15); }
+    header h1 { font-size:16px; margin:0; }
+    #messages { padding: 18px; height: 60vh; overflow:auto; scroll-behavior:smooth; background: linear-gradient(#fafbfc,#fff 120px); }
+    @media (prefers-color-scheme: dark){ #messages{ background: linear-gradient(#0b1220,#0f172a 120px);} }
+
+    .msg { display:flex; gap:10px; margin: 12px 0; }
+    .msg.bot { justify-content:flex-start; }
+    .msg.user { justify-content:flex-end; }
+    .bubble { max-width: 72%; padding: 12px 14px; border-radius: var(--radius); line-height:1.45; border:1px solid var(--border); }
+    .bot .bubble { background: #f1f5f9; border-top-left-radius: 10px; }
+    .user .bubble { background: var(--primary); color: var(--primary-contrast); border-top-right-radius: 10px; border-color: transparent; }
+    @media (prefers-color-scheme: dark){ .bot .bubble{ background:#0b223a; } }
+
+    .chips { position: sticky; bottom: 0; display:flex; flex-wrap:wrap; gap:10px; padding: 10px 18px 14px; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,.85)); backdrop-filter: blur(6px); }
+    @media (prefers-color-scheme: dark){ .chips{ background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(15,23,42,.85)); } }
+
+    .chip { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border); padding:10px 12px; border-radius:999px; font-size:14px; background: rgba(255,255,255,.8); color: var(--text); box-shadow: 0 1px 0 rgba(0,0,0,.02); cursor:pointer; transition: transform .12s ease, background .2s ease, box-shadow .2s ease; }
+    .chip:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(2,6,23,.08); }
+    .chip:focus{ outline:2px solid #2563eb; outline-offset:2px; }
+    @media (prefers-color-scheme: dark){ .chip{ background: rgba(30,41,59,.7); } }
+    .chip .emoji{ font-size:16px; }
+
+    form { display:flex; gap:10px; padding: 12px; border-top:1px solid var(--border); background: var(--card); position: sticky; bottom: 0; }
+    input[type="text"] { flex:1; font-size:16px; padding:12px 14px; border:1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text); }
+    #sendBtn { border:0; background: linear-gradient(90deg, var(--primary), #1f2937); color:var(--primary-contrast); padding:12px 16px; border-radius:12px; cursor:pointer; transition: filter .2s ease, transform .1s ease; }
+    #sendBtn:hover { filter: brightness(1.05); }
+    #sendBtn:active { transform: translateY(1px); }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+
+    .small { font-size:12px; color:var(--muted); }
+    .visually-hidden { position:absolute !important; width:1px; height:1px; margin:-1px; border:0; padding:0; white-space:nowrap; clip-path: inset(50%); clip: rect(0 0 0 0); overflow:hidden; }
+    @media (max-width:480px){ .bubble{ max-width: 85%; } }
+
+    /* Typing indicator */
+    .typing .bubble{ background:#f1f5f9; }
+    .dots{ display:inline-flex; gap:4px; vertical-align: middle; }
+    .dots i{ width:6px; height:6px; border-radius:50%; background:#94a3b8; opacity:.7; animation: blink 1.1s infinite; }
+    .dots i:nth-child(2){ animation-delay:.2s; }
+    .dots i:nth-child(3){ animation-delay:.4s; }
+    @keyframes blink{ 0%,80%,100%{ opacity:.2; transform:translateY(0);} 40%{ opacity:1; transform:translateY(-2px);} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" role="region" aria-label="FAQ Chatbot">
+      <header>
+        <span class="dot" aria-hidden="true"></span>
+        <h1>Studio Assistant</h1>
+        <div class="small" aria-live="polite" id="status" style="margin-left:auto;">Online</div>
+      </header>
+
+      <div id="messages" aria-live="polite" aria-atomic="false"></div>
+      <div class="chips" id="chips"></div>
+
+      <form id="chatForm" autocomplete="off">
+        <label class="visually-hidden" for="q">Your question</label>
+        <input id="q" name="q" type="text" placeholder="Ask a question… (e.g., ‘Start a pilot project’)" required />
+        <button id="sendBtn" type="submit">Send</button>
+      </form>
+    </div>
+    <p class="small" style="margin:10px 4px 0;">Tip: replace placeholders like <code>YOUR_HANDLE</code>, <code>dale@gmail.com</code>, and portfolio URLs below. This is a static, client-side helper (no server, no tracking).</p>
+  </div>
+
+  <script>
+    // --- 1) Your FAQ "knowledge base" (using your 5 questions) -------------
+    const KB = [
+      {
+        q: "Book a 20-min consult",
+        a: `
+          <p>Grab a time that works:</p>
+          <p><a href="https://calendly.com/YOUR_HANDLE/20min" target="_blank" rel="noopener">Book a 20‑min consult</a></p>
+          <p>No slots? Email <a href="mailto:dale@gmail.com?subject=Consult%20request%20(20%20min)&body=Share%20a%20few%20times%20that%20work%20for%20you%20and%20your%20time%20zone." target="_blank" rel="noopener">dale@gmail.com</a> with 2–3 options (include your time zone).</p>
+          <p>What we’ll cover: goals, audience, timeline, success criteria, and next steps.</p>
+        `,
+        tags: ["book","schedule","meeting","consult","calendar","call"]
+      },
+      {
+        q: "Request a scoped quote",
+        a: `
+          <p>Fastest path: send details via <a href="https://forms.gle/YOUR_GOOGLE_FORM" target="_blank" rel="noopener">the quote form</a> (or email <a href="mailto:dale@gmail.com?subject=Quote%20request" target="_blank" rel="noopener">dale@gmail.com</a>).</p>
+          <p>Please include:</p>
+          <ul>
+            <li>Deliverable(s) & format (e.g., 3 blog posts, 1 case study, landing page)</li>
+            <li>Word count or length guidelines</li>
+            <li>Audience & tone (with any examples)</li>
+            <li>Sources/assets you’ll provide (brief, interviews, data)</li>
+            <li>Timeline & hard deadlines</li>
+          </ul>
+          <p>Turnaround: I typically reply within 1 business day with a scoped estimate and options.</p>
+        `,
+        tags: ["quote","pricing","estimate","proposal","scope"]
+      },
+      {
+        q: "See writing samples",
+        a: `
+          <p>Browse representative work:</p>
+          <ul>
+            <li><a href="https://your-portfolio.example.com" target="_blank" rel="noopener">Portfolio overview</a></li>
+            <li><a href="https://drive.google.com/drive/folders/YOUR_FOLDER" target="_blank" rel="noopener">Google Drive samples</a> (case studies, blogs, long‑form)</li>
+          </ul>
+          <p>Need industry‑specific pieces (e.g., SaaS, fintech, healthcare)? Email <a href="mailto:dale@gmail.com?subject=Request%20for%20samples" target="_blank" rel="noopener">dale@gmail.com</a> and I’ll send tailored links.</p>
+        `,
+        tags: ["samples","portfolio","writing","case studies","blog","examples"]
+      },
+      {
+        q: "Share your brief",
+        a: `
+          <p>Upload or paste your brief via <a href="https://forms.gle/YOUR_BRIEF_FORM" target="_blank" rel="noopener">the brief intake form</a> so everything’s in one place.</p>
+          <p>Prefer a template? Start with this <a href="https://docs.google.com/document/d/YOUR_TEMPLATE/preview" target="_blank" rel="noopener">Google Doc brief template</a> and share access.</p>
+          <p>Confidentiality: I’m happy to sign an NDA. Send it to <a href="mailto:dale@gmail.com?subject=NDA" target="_blank" rel="noopener">dale@gmail.com</a>.</p>
+        `,
+        tags: ["brief","requirements","RFP","intake","creative brief"]
+      },
+      {
+        q: "Start a pilot project",
+        a: `
+          <p>A pilot is a low‑risk way to start. Typical flow:</p>
+          <ol>
+            <li><strong>Kickoff (30–45 min):</strong> clarify goals, audience, voice, and approval path.</li>
+            <li><strong>Draft & review:</strong> I deliver a first draft with reasons behind key choices; we iterate once or twice.</li>
+            <li><strong>Finalize & debrief:</strong> sign‑off, metrics plan, and recommendations for ongoing work.</li>
+          </ol>
+          <p>Timeline: ~2–4 weeks depending on scope. Ready? <a href="https://calendly.com/YOUR_HANDLE/20min" target="_blank" rel="noopener">Book a consult</a> or email <a href="mailto:dale@gmail.com?subject=Start%20a%20pilot" target="_blank" rel="noopener">dale@gmail.com</a>.</p>
+        `,
+        tags: ["pilot","trial","start","onboarding","POC","project"]
+      }
+    ];
+
+    // --- 2) Very small fuzzy matcher (no dependencies) -----------------------
+    function normalize(s){
+      return s.toLowerCase()
+        .normalize('NFD').replace(/\p{Diacritic}/gu,'')
+        .replace(/[^a-z0-9\s]/g,' ')
+        .replace(/\s+/g,' ').trim();
+    }
+    function tokenize(s){ return new Set(normalize(s).split(' ').filter(Boolean)); }
+
+    function score(query, item){
+      // Heuristics: exact/substring hits > token overlap > tag hits
+      const nq = normalize(query);
+      const niq = normalize(item.q);
+
+      let s = 0;
+      if (nq === niq) s += 100;
+      if (niq.includes(nq) || nq.includes(niq)) s += 60;
+
+      // token overlap (Jaccard-ish)
+      const qt = tokenize(query), it = tokenize(item.q + ' ' + (item.tags||[]).join(' '));
+      const overlap = [...qt].filter(t => it.has(t));
+      const jacc = overlap.length / Math.max(1, new Set([...qt, ...it]).size);
+      s += jacc * 40;
+
+      // tag direct hits
+      const tagHit = (item.tags||[]).some(t => normalize(t) === nq);
+      if (tagHit) s += 20;
+
+      // bonus for phrase hits in answer (for broader queries)
+      if (normalize(item.a).includes(nq)) s += 10;
+
+      return s;
+    }
+
+    function findBest(query, limit=3){
+      const ranked = KB.map(item => ({ item, s: score(query, item) }))
+                       .sort((a,b)=> b.s - a.s)
+                       .slice(0, limit);
+      return ranked;
+    }
+
+    // --- 3) UI logic ---------------------------------------------------------
+    const messagesEl = document.getElementById('messages');
+    const chipsEl = document.getElementById('chips');
+    const form = document.getElementById('chatForm');
+    const input = document.getElementById('q');
+    const sendBtn = document.getElementById('sendBtn');
+    const statusEl = document.getElementById('status');
+    let typingEl = null; // holds the "bot is typing" bubble
+
+    function addMsg(text, who='bot', isHtml=false){
+      const div = document.createElement('div');
+      div.className = `msg ${who}`;
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      if(isHtml) bubble.innerHTML = text; else bubble.textContent = text;
+      div.appendChild(bubble);
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return div;
+    }
+
+    function showSuggestions(){
+      chipsEl.innerHTML = '';
+      const ICON_MAP = {
+        'Book a 20-min consult': '📅',
+        'Request a scoped quote': '💼',
+        'See writing samples': '✍️',
+        'Share your brief': '📝',
+        'Start a pilot project': '🚀'
+      };
+      const suggestions = KB.map(x => x.q); // show all
+      for(const s of suggestions){
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'chip';
+        const emoji = document.createElement('span');
+        emoji.className = 'emoji';
+        emoji.textContent = ICON_MAP[s] || '⭐';
+        const label = document.createElement('span');
+        label.textContent = s;
+        b.append(emoji, label);
+        b.addEventListener('click', ()=> {
+          input.value = s;
+          form.requestSubmit();
+        });
+        chipsEl.appendChild(b);
+      }
+    }
+
+    function botReply(query){
+      const results = findBest(query, 3);
+      const [best] = results;
+      if(!best || best.s < 25){
+        addMsg("I’m not sure yet. Here are a few related options:", 'bot');
+        const list = document.createElement('div');
+        list.className = 'msg bot';
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerHTML = results.length
+          ? results.map(r => `• ${r.item.q}`).join('\n')
+          : "• Try keywords like ‘quote’, ‘samples’, or ‘pilot’.";
+        list.appendChild(bubble);
+        messagesEl.appendChild(list);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return;
+      }
+      addMsg(best.item.a, 'bot', true);
+    }
+
+    function typing(on){
+      statusEl.textContent = on ? 'Typing…' : 'Online';
+      sendBtn.disabled = !!on;
+      if(on && !typingEl){
+        typingEl = document.createElement('div');
+        typingEl.className = 'msg bot typing';
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>';
+        typingEl.appendChild(bubble);
+        messagesEl.appendChild(typingEl);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+      if(!on && typingEl){
+        typingEl.remove();
+        typingEl = null;
+      }
+    }
+
+    // Greeting
+    addMsg("Hi! I can help you book a consult, request a quote, see samples, share a brief, or start a pilot. Pick a suggestion below or type your question.");
+    showSuggestions();
+
+    form.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const q = input.value.trim();
+      if(!q) return;
+      addMsg(q, 'user');
+      input.value = '';
+      typing(true);
+      setTimeout(()=>{ typing(false); botReply(q); }, 380); // tiny delay for UX
+    });
+
+    // --- 4) Minimal test harness (runs once on load; results in console) -----
+    function runTests(){
+      const results = [];
+      const prev = messagesEl.innerHTML; // don't pollute UI
+      function t(name, fn){
+        try { fn(); results.push({ test: name, pass: true }); }
+        catch(e){ results.push({ test: name, pass: false, error: e.message }); }
+      }
+
+      // Test 1: chips render for all KB entries
+      t('chips count equals KB length', ()=>{
+        const count = chipsEl.querySelectorAll('.chip').length;
+        if(count !== KB.length) throw new Error(`expected ${KB.length}, got ${count}`);
+      });
+
+      // Test 2: retrieval chooses the right top item for a keyword
+      t('findBest("quote") → "Request a scoped quote"', ()=>{
+        const top = findBest('quote', 1)[0];
+        if(!top || top.item.q !== 'Request a scoped quote') throw new Error('wrong top match');
+      });
+
+      // Test 3: addMsg returns element with a bubble child
+      t('addMsg returns DOM element', ()=>{
+        const el = addMsg('test', 'bot');
+        if(!el || !el.querySelector('.bubble')) throw new Error('no bubble');
+      });
+
+      // cleanup messages
+      messagesEl.innerHTML = prev;
+      console.table(results);
+      window.TEST_RESULTS = results;
+    }
+
+    // Run tests after initial render
+    runTests();
+  </script>
+</body>
+</html>
 
