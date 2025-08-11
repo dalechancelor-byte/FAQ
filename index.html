@@ -351,6 +351,24 @@
     // Run tests after initial render
     runTests();
   </script>
+  <script>
+    // --- 5) Auto-resize for iframe embeds (child -> parent) -----------------
+    (function () {
+      function pageHeight() {
+        const b = document.body, d = document.documentElement;
+        return Math.max(b.scrollHeight, b.offsetHeight, d.clientHeight, d.scrollHeight, d.offsetHeight);
+      }
+      const send = () => {
+        try { window.parent.postMessage({ type: "FAQ_EMBED_SIZE", height: pageHeight(), href: location.href }, "*"); }
+        catch (_) { /* noop */ }
+      };
+      window.addEventListener("load", send);
+      window.addEventListener("resize", send);
+      if (window.ResizeObserver) new ResizeObserver(send).observe(document.body);
+      if (window.MutationObserver) new MutationObserver(send).observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true });
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(send);
+      setTimeout(send, 800); // fallback after initial render
+    })();
+  </script>
 </body>
 </html>
-
