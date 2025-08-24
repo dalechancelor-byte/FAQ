@@ -1,5 +1,5 @@
-# FAQ
- Simple html static FAQ
+Simple html static FAQ
+
 FAQ
 
 A minimal, static HTML FAQ webpage.
